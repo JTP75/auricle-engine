@@ -1,37 +1,37 @@
 # Auricle Engine WebSocket Protocol
 
-The engine runs a WebSocket server. Connectors connect as clients and communicate
-over a single persistent full-duplex connection.
+The **connector** (hermes-auricle) runs the WebSocket server. The **engine**
+connects to it as a client and reconnects automatically on disconnect.
 
 ---
 
 ## Client ID
 
-Every message in both directions carries a `client_id` field. Only one client
+Every message in both directions carries a `client_id` field. Only one engine
 is supported today, but the field is required in the protocol now so that
-multi-client support can be added without a breaking change.
+multi-engine support can be added without a breaking change.
 
-The engine assigns a `client_id` on connect and echoes it back in the `ready`
-message. The client must include this `client_id` in every subsequent message
-it sends.
+The connector assigns a `client_id` when the engine connects and sends it back
+in the `ready` message. The engine must include this `client_id` in every
+subsequent message it sends.
 
 ---
 
 ## Connection lifecycle
 
 ```
-Client                          Engine
+Engine                        Connector (hermes-auricle)
   |                               |
   |-------- WebSocket connect --->|
-  |<--- {t:"ready", client_id} ---|   engine assigns client_id, signals ready
+  |<--- {t:"ready", client_id} ---|   connector assigns client_id, signals ready
   |                               |
   |        ... session ...        |
   |                               |
-  |---- WebSocket close --------->|   or engine closes on fatal error
+  |---- WebSocket close --------->|   or connector closes on shutdown
 ```
 
-If the client disconnects and reconnects, the engine issues a new `client_id`.
-The FSM resets to IDLE on disconnect.
+If the engine disconnects and reconnects, the connector issues a new `client_id`.
+The engine resets FSM to IDLE on disconnect.
 
 ---
 

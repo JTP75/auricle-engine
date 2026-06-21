@@ -99,7 +99,7 @@ from providers import (
     VoskSTTProvider,
     WhisperSTTProvider,
 )
-from server import AuricleServer
+from client import AuricleClient
 from sleep import SleepDetector
 
 logging.basicConfig(
@@ -181,8 +181,8 @@ async def main() -> None:
     audio_buffer = AudioBuffer(AUDIO_RING_BUFFER_CHUNKS, tts_tail_seconds=TTS_ECHO_TAIL_SECONDS)
     egress       = EgressController(tts, barge_in, audio_buffer, audio_output)
     stop_event   = threading.Event()
-    server       = AuricleServer(fsm, egress, audio_output, stop_event)
-    server.set_loop(loop)
+    client       = AuricleClient(fsm, egress, audio_output, stop_event)
+    client.set_loop(loop)
 
     # ── Load STT ───────────────────────────────────────────────────────────
     logger.info("[auricle-engine] loading STT (%s)", type(stt).__name__)
@@ -238,7 +238,7 @@ async def main() -> None:
             audio_buffer=audio_buffer,
             fsm=fsm,
             loop=loop,
-            dispatch_fn=server.get_dispatch_fn(),
+            dispatch_fn=client.get_dispatch_fn(),
             stop_event=stop_event,
             active_listen_duration=float(
                 os.getenv(ENV_ACTIVE_LISTEN_DURATION, str(DEFAULT_ACTIVE_LISTEN_DURATION))
@@ -251,9 +251,9 @@ async def main() -> None:
     ingress_thread.start()
     logger.info("[auricle-engine] ingress started — listening for wakeword")
 
-    # ── Serve (blocks until cancelled) ─────────────────────────────────────
+    # ── Connect to connector and run (blocks until cancelled) ──────────────
     try:
-        await server.serve()
+        await client.run()
     finally:
         stop_event.set()
         if isinstance(stt, WhisperSTTProvider):

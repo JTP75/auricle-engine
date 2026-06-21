@@ -38,13 +38,11 @@ from consts import (
     DEFAULT_STT_BACKEND,
     DEFAULT_TTS_BACKEND,
     DEFAULT_VOSK_MODEL_PATH,
+    DEFAULT_CONNECTOR_URL,
     DOCTOR_MIC_SILENCE_THRESHOLD,
-    ENGINE_HOST,
-    ENGINE_PORT,
     ENV_AUDIO_INPUT,
     ENV_AUDIO_OUTPUT,
-    ENV_ENGINE_HOST,
-    ENV_ENGINE_PORT,
+    ENV_CONNECTOR_URL,
     ENV_F5_REF_TXT,
     ENV_F5_REF_WAV,
     ENV_MIC_DEVICE,
@@ -96,17 +94,21 @@ def _sec(title: str) -> None:
     print(_c(f"◆ {title}", _C, _B))
 
 
-# ── port availability check ────────────────────────────────────────────────────
+# ── connector reachability check ──────────────────────────────────────────────
 
-def _engine_port_in_use(host: str, port: int) -> bool:
-    """Return True if the engine's WebSocket port is already bound."""
+def _connector_reachable(url: str) -> bool:
+    """Return True if a TCP connection to the connector URL succeeds."""
+    import urllib.parse
+    parsed = urllib.parse.urlparse(url)
+    host = parsed.hostname or "localhost"
+    port = parsed.port or 57310
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.settimeout(2)
         try:
-            s.bind((host, port))
-            return False
-        except OSError:
+            s.connect((host, port))
             return True
+        except OSError:
+            return False
 
 
 # ── sounddevice device resolution ─────────────────────────────────────────────
@@ -179,8 +181,7 @@ def _check_config(issues: list[str]) -> tuple[str, str, str, str, str, str]:
     audio_out   = os.getenv(ENV_AUDIO_OUTPUT, DEFAULT_AUDIO_OUTPUT).lower()
     mic_device  = os.getenv(ENV_MIC_DEVICE,   DEFAULT_MIC_DEVICE)
     spk_device  = os.getenv(ENV_SPEAKER_DEVICE, DEFAULT_SPEAKER_DEVICE)
-    ws_host     = os.getenv(ENV_ENGINE_HOST, ENGINE_HOST)
-    ws_port     = int(os.getenv(ENV_ENGINE_PORT, str(ENGINE_PORT)))
+    connector_url = os.getenv(ENV_CONNECTOR_URL, DEFAULT_CONNECTOR_URL)
 
     if stt_backend in ("vosk", "whisper"):
         _ok(f"STT backend:  {stt_backend}")
@@ -209,15 +210,14 @@ def _check_config(issues: list[str]) -> tuple[str, str, str, str, str, str]:
 
     mic_note = " (default)" if mic_device == DEFAULT_MIC_DEVICE else ""
     spk_note = " (default)" if spk_device == DEFAULT_SPEAKER_DEVICE else ""
-    _info(f"Mic device:     {mic_device}{mic_note}")
-    _info(f"Speaker device: {spk_device}{spk_note}")
-    _info(f"WebSocket:      ws://{ws_host}:{ws_port}")
+    _info(f"Mic device:        {mic_device}{mic_note}")
+    _info(f"Speaker device:    {spk_device}{spk_note}")
+    _info(f"Connector URL:     {connector_url}")
 
-    if _engine_port_in_use(ws_host if ws_host != "0.0.0.0" else "127.0.0.1", ws_port):
-        _warn(
-            f"Port {ws_port} is already in use",
-            "audio device tests may fail — stop the running engine first",
-        )
+    if _connector_reachable(connector_url):
+        _ok("Connector reachable", f"({connector_url})")
+    else:
+        _info("Connector not yet reachable — start hermes gateway before testing audio")
 
     return stt_backend, tts_backend, audio_in, audio_out, mic_device, spk_device
 

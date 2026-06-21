@@ -2,8 +2,6 @@ import asyncio
 import json
 import logging
 import os
-import threading
-import uuid
 from typing import Optional
 
 import websockets
@@ -11,11 +9,10 @@ import websockets.exceptions
 
 from consts import (
     ASSET_NOTIFY,
-    ENGINE_HOST,
-    ENGINE_PORT,
-    ENV_ENGINE_HOST,
-    ENV_ENGINE_PORT,
+    DEFAULT_CONNECTOR_URL,
+    ENV_CONNECTOR_URL,
     PROACTIVE_PRE_SPEECH_PAUSE,
+    RETRY_DELAY_SECONDS,
     TTS_CLEARED,
     TTS_STOPPED,
     _CMD_CLEAR,
@@ -26,17 +23,16 @@ from fsm import FSM, State
 logger = logging.getLogger(__name__)
 
 
-class AuricleServer:
+class AuricleClient:
     """
-    WebSocket server for the auricle engine.
+    WebSocket client for the auricle engine.
 
-    Accepts a single client connection. Assigns a client_id on connect and
-    includes it in every outbound message. Bridges inbound WebSocket messages
-    to the audio pipeline (egress/FSM) and pushes engine events back to the
-    connected client.
+    Connects to the connector's WebSocket server (hermes-auricle), receives
+    speak/abort/notify commands, and pushes utterance/cmd events back.
+    Reconnects automatically on disconnect.
     """
 
-    def __init__(self, fsm: FSM, egress, audio_output, stop_event: threading.Event) -> None:
+    def __init__(self, fsm: FSM, egress, audio_output, stop_event) -> None:
         self._fsm          = fsm
         self._egress       = egress
         self._audio_output = audio_output
@@ -49,10 +45,10 @@ class AuricleServer:
     def set_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop = loop
 
-    # ── Outbound ────────────────────────────────────────────────────────────
+    # ── Outbound ─────────────────────────────────────────────────────────────
 
     async def send_event(self, msg: dict) -> None:
-        """Send a JSON event to the connected client. No-op if no client."""
+        """Send a JSON event to the connector. No-op if not connected."""
         ws = self._ws
         if ws is None:
             return
@@ -61,13 +57,7 @@ class AuricleServer:
         except Exception as exc:
             logger.debug("[auricle-engine] send_event failed: %s", exc)
 
-    def send_event_threadsafe(self, msg: dict) -> None:
-        """Schedule send_event from a non-asyncio thread (e.g. ingress)."""
-        if self._loop is None:
-            return
-        asyncio.run_coroutine_threadsafe(self.send_event(msg), self._loop)
-
-    # ── Dispatch fn (injected into ingress thread) ──────────────────────────
+    # ── Dispatch fn (injected into ingress thread) ───────────────────────────
 
     async def _dispatch(self, text: str) -> None:
         """Coroutine called by the ingress thread via run_coroutine_threadsafe."""
@@ -90,7 +80,6 @@ class AuricleServer:
         await self.send_event({"t": "utterance", "client_id": self._client_id, "text": text})
 
     def get_dispatch_fn(self):
-        """Return the dispatch coroutine for injection into run_ingress_loop."""
         return self._dispatch
 
     # ── Inbound message handling ─────────────────────────────────────────────
@@ -99,7 +88,7 @@ class AuricleServer:
         try:
             msg = json.loads(raw)
         except json.JSONDecodeError:
-            logger.warning("[auricle-engine] invalid JSON from client: %r", raw[:80])
+            logger.warning("[auricle-engine] invalid JSON from connector: %r", raw[:80])
             return
 
         t = msg.get("t")
@@ -141,33 +130,34 @@ class AuricleServer:
 
     # ── Connection lifecycle ─────────────────────────────────────────────────
 
-    async def _handle_connection(self, ws) -> None:
-        if self._ws is not None:
-            logger.warning("[auricle-engine] rejecting second client — only one supported")
-            await ws.close(1008, "Only one client supported")
-            return
+    async def run(self) -> None:
+        """Connect to the connector and handle messages. Reconnects on disconnect."""
+        url = os.getenv(ENV_CONNECTOR_URL, DEFAULT_CONNECTOR_URL)
+        while not self._stop_event.is_set():
+            try:
+                logger.info("[auricle-engine] connecting to connector at %s", url)
+                async with websockets.connect(url) as ws:
+                    raw = await asyncio.wait_for(ws.recv(), timeout=10)
+                    msg = json.loads(raw)
+                    if msg.get("t") != "ready":
+                        logger.error("[auricle-engine] unexpected handshake: %r", msg)
+                    else:
+                        self._ws        = ws
+                        self._client_id = msg["client_id"]
+                        logger.info("[auricle-engine] connected (client_id=%s)", self._client_id)
+                        async for message in ws:
+                            await self._handle_message(message)
+            except websockets.exceptions.ConnectionClosed:
+                logger.info("[auricle-engine] connector closed connection")
+            except (OSError, ConnectionRefusedError, asyncio.TimeoutError) as exc:
+                logger.warning("[auricle-engine] could not connect to connector: %s", exc)
+            except Exception as exc:
+                logger.warning("[auricle-engine] connection error: %s", exc)
+            finally:
+                self._ws        = None
+                self._client_id = None
+                self._fsm.transition(State.IDLE)
 
-        client_id = uuid.uuid4().hex[:8]
-        self._ws        = ws
-        self._client_id = client_id
-        logger.info("[auricle-engine] client connected (id=%s)", client_id)
-
-        await ws.send(json.dumps({"t": "ready", "client_id": client_id}))
-
-        try:
-            async for message in ws:
-                await self._handle_message(message)
-        except websockets.exceptions.ConnectionClosed:
-            logger.info("[auricle-engine] client disconnected (id=%s)", client_id)
-        finally:
-            self._ws        = None
-            self._client_id = None
-            self._fsm.transition(State.IDLE)
-
-    async def serve(self) -> None:
-        """Start the WebSocket server. Blocks until cancelled."""
-        host = os.getenv(ENV_ENGINE_HOST, ENGINE_HOST)
-        port = int(os.getenv(ENV_ENGINE_PORT, str(ENGINE_PORT)))
-        logger.info("[auricle-engine] listening on ws://%s:%d", host, port)
-        async with websockets.serve(self._handle_connection, host, port):
-            await asyncio.Future()  # run forever
+            if not self._stop_event.is_set():
+                await asyncio.sleep(RETRY_DELAY_SECONDS)
+                logger.info("[auricle-engine] retrying connector connection…")

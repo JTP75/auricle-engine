@@ -88,7 +88,7 @@ source .venv/bin/activate
 python __main__.py
 ```
 
-Listens on `ws://localhost:57310` by default. Set `AURICLE_ENGINE_PORT` to use a different port.
+Connects to the connector at `ws://localhost:57310` by default. Set `AURICLE_CONNECTOR_URL` to point at a remote connector.
 
 ---
 
@@ -145,8 +145,7 @@ All settings are read from environment variables. There is no config file — se
 | `AURICLE_SLEEP_TIMEOUT` | `60` | Seconds of IDLE silence before auto-sleep |
 | `AURICLE_SLEEP_WAKE_SENSITIVITY` | `3.0` | Flux multiplier above baseline to wake; lower = more sensitive |
 | `AURICLE_SLEEP_FLUX_THRESHOLD` | `0.02` | Normalized flux EMA cutoff for "quiet" classification |
-| `AURICLE_ENGINE_PORT` | `57310` | WebSocket server port |
-| `AURICLE_ENGINE_HOST` | `localhost` | WebSocket server bind address. Set to `0.0.0.0` to accept connections from remote clients (e.g. connector on a different machine over Tailscale). |
+| `AURICLE_CONNECTOR_URL` | `ws://localhost:57310` | WebSocket URL of the hermes-auricle connector server. Change to the connector's Tailscale address when running on separate machines. |
 
 ---
 
