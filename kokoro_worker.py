@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Kokoro-TTS worker — runs in ~/kokoro-venv (Python 3.10, kokoro 0.9.x).
+Kokoro-TTS worker — runs in a Python 3.10 venv with kokoro.
 Spawned by KokoroTTSProvider.load() in auricle-engine. Do not run directly.
 
 Protocol:

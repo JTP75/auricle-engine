@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-F5-TTS worker — runs in ~/f5-venv (Python 3.10, f5_tts, torch+CUDA).
+F5-TTS worker — runs in a Python 3.10 venv with f5_tts, torch, and CUDA.
 Spawned by F5TTSProvider.load() in auricle-engine. Do not run directly.
 
 Protocol:
