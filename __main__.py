@@ -41,12 +41,10 @@ from consts import (
     ENV_AUDIO_INPUT,
     ENV_AUDIO_OUTPUT,
     ENV_F5_MODEL,
-    ENV_F5_PYTHON,
     ENV_F5_REF_TXT,
     ENV_F5_REF_WAV,
     ENV_F5_SPEED,
     ENV_F5_STEPS,
-    ENV_KOKORO_PYTHON,
     ENV_KOKORO_VOICE,
     ENV_MIC_DEVICE,
     ENV_MUTE,
@@ -64,7 +62,6 @@ from consts import (
     ENV_TTS_VOICE,
     ENV_VOSK_MODEL_PATH,
     ENV_WHISPER_MODEL_ID,
-    ENV_WHISPER_PYTHON,
     OWW_THRESHOLD,
     SAMPLE_RATE,
     SLEEP_EMA_ALPHA,
@@ -136,8 +133,6 @@ async def main() -> None:
     if stt_backend == "whisper":
         stt = WhisperSTTProvider(
             model_id=os.getenv(ENV_WHISPER_MODEL_ID, DEFAULT_WHISPER_MODEL_ID),
-            python_path=os.getenv(ENV_WHISPER_PYTHON, ""),
-            worker_path=os.path.join(os.path.dirname(__file__), "whisper_worker.py"),
         )
     else:
         stt = VoskSTTProvider(
@@ -149,8 +144,6 @@ async def main() -> None:
     if tts_backend == "f5-tts":
         tts = F5TTSProvider(
             model=os.getenv(ENV_F5_MODEL, DEFAULT_F5_MODEL),
-            python_path=os.getenv(ENV_F5_PYTHON, ""),
-            worker_path=os.path.join(os.path.dirname(__file__), "f5_worker.py"),
             steps=int(os.getenv(ENV_F5_STEPS, str(DEFAULT_F5_STEPS))),
             speed=float(os.getenv(ENV_F5_SPEED, str(DEFAULT_F5_SPEED))),
             ref_wav=os.path.expanduser(os.getenv(ENV_F5_REF_WAV, "")),
@@ -159,8 +152,6 @@ async def main() -> None:
     elif tts_backend == "kokoro-tts":
         tts = KokoroTTSProvider(
             voice=os.getenv(ENV_KOKORO_VOICE, DEFAULT_KOKORO_VOICE),
-            python_path=os.getenv(ENV_KOKORO_PYTHON, ""),
-            worker_path=os.path.join(os.path.dirname(__file__), "kokoro_worker.py"),
         )
     else:
         tts = EdgeTTSProvider(os.getenv(ENV_TTS_VOICE, DEFAULT_TTS_VOICE))
@@ -182,9 +173,9 @@ async def main() -> None:
     logger.info("[auricle-engine] loading STT (%s)", type(stt).__name__)
     stt.load()
 
-    # ── Load TTS worker (if subprocess-backed) ─────────────────────────────
+    # ── Load TTS model ─────────────────────────────────────────────────────
     if isinstance(tts, (F5TTSProvider, KokoroTTSProvider)):
-        logger.info("[auricle-engine] loading TTS worker (%s)", type(tts).__name__)
+        logger.info("[auricle-engine] loading TTS model (%s)", type(tts).__name__)
         tts.load()
 
     # ── Load OWW ───────────────────────────────────────────────────────────

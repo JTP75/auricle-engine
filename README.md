@@ -26,7 +26,7 @@ A standalone, agent-agnostic voice engine. Owns wakeword detection, STT, TTS, au
 ### Python packages (engine venv)
 
 ```bash
-# Core audio pipeline (always required)
+# Core (always required)
 pip install openwakeword numpy websockets
 
 # STT: vosk backend (default, CPU-only)
@@ -35,19 +35,18 @@ pip install vosk
 # TTS: edge-tts backend (default, cloud)
 pip install edge-tts
 
-# STT: whisper backend — separate Python 3.10 venv
-python3.10 -m venv /path/to/whisper-venv
-/path/to/whisper-venv/bin/pip install torch transformers accelerate webrtcvad
+# STT: whisper backend (GPU recommended)
+pip install torch transformers accelerate webrtcvad-wheels
 
-# TTS: kokoro backend — separate Python 3.10 venv
+# TTS: kokoro backend (CPU-friendly)
 sudo apt-get install espeak-ng
-python3.10 -m venv ~/kokoro-venv
-~/kokoro-venv/bin/pip install kokoro soundfile
+pip install kokoro soundfile
 
-# TTS: f5-tts backend — separate Python 3.10 venv with CUDA GPU
-python3.10 -m venv ~/f5-venv
-~/f5-venv/bin/pip install f5-tts torch torchaudio
+# TTS: f5-tts backend (GPU recommended)
+pip install f5-tts torch torchaudio
 ```
+
+All backends share the same venv. Install only what you need for your chosen STT and TTS backends.
 
 ### System packages (Debian/Ubuntu)
 
@@ -114,7 +113,6 @@ All settings are read from environment variables. There is no config file — se
 |---------|---------|-------------|
 | `AURICLE_STT_BACKEND` | `vosk` | STT backend: `vosk` or `whisper` |
 | `AURICLE_VOSK_MODEL_PATH` | `models/vosk-model` | Path to vosk model directory (vosk only) |
-| `AURICLE_WHISPER_PYTHON` | *(required)* | Python binary in the whisper venv (whisper only) |
 | `AURICLE_WHISPER_MODEL_ID` | `distil-whisper/distil-large-v3` | HuggingFace model ID (whisper only) |
 
 ### TTS
@@ -123,13 +121,11 @@ All settings are read from environment variables. There is no config file — se
 |---------|---------|-------------|
 | `AURICLE_TTS_BACKEND` | `edge-tts` | TTS backend: `edge-tts`, `f5-tts`, or `kokoro-tts` |
 | `AURICLE_TTS_VOICE` | `en-GB-LibbyNeural` | edge-tts voice name (edge-tts only) |
-| `AURICLE_F5_PYTHON` | *(required)* | Python binary in the f5-tts venv (f5-tts only) |
 | `AURICLE_F5_MODEL` | `F5TTS_v1_Base` | F5-TTS model name (f5-tts only) |
 | `AURICLE_F5_STEPS` | `5` | Flow-matching inference steps; lower = faster (f5-tts only) |
 | `AURICLE_F5_SPEED` | `1.0` | Speech speed multiplier (f5-tts only) |
 | `AURICLE_F5_REF_WAV` | *(optional)* | Reference WAV for voice cloning — 5–15s, 24kHz mono. Both `REF_WAV` and `REF_TXT` must be set together, or neither. |
 | `AURICLE_F5_REF_TXT` | *(optional)* | Exact transcript of `F5_REF_WAV` (f5-tts only) |
-| `AURICLE_KOKORO_PYTHON` | *(required)* | Python binary in the kokoro venv (kokoro-tts only) |
 | `AURICLE_KOKORO_VOICE` | `af_heart` | Voice name. `af_*`/`am_*` = American English; `bf_*`/`bm_*` = British English (kokoro-tts only) |
 
 ### Wakeword (OWW)
@@ -173,7 +169,7 @@ Matched against the full STT transcript (exact, case-insensitive). Wakeword must
 
 **Auto-sleep:** After `AURICLE_SLEEP_TIMEOUT` seconds of acoustic inactivity in IDLE, the OWW model is gated off. Wake detection uses normalized spectral flux — stable background noise (fans, HVAC) stays below the threshold while any novel acoustic event (speech, knock) triggers an instant wake. The model stays loaded; sleep is a software flag.
 
-**Subprocess workers:** Whisper STT, F5-TTS, and Kokoro-TTS each run in their own Python venv via a subprocess with a binary protocol over stdin/stdout. This isolates heavy ML deps from the engine's venv and allows each backend to use whatever Python version or CUDA wheel it needs.
+**GPU backends:** Whisper STT, F5-TTS, and Kokoro-TTS run directly in the engine venv alongside OWW and vosk. Synthesis and inference run in a thread-pool executor so they don't block the asyncio event loop. Install only the packages for your chosen backends — uninstalled backends are never imported.
 
 ---
 
@@ -215,9 +211,6 @@ auricle-engine/
   audio_buffer.py      ring buffer with TTS-active tracking for echo suppression
   audio_io.py          audio I/O abstraction (arecord/aplay + sounddevice)
   sleep.py             SleepDetector — normalized spectral flux EMA
-  whisper_worker.py    Whisper STT subprocess (Python 3.10 venv, binary protocol)
-  f5_worker.py         F5-TTS subprocess (f5-tts venv, binary protocol)
-  kokoro_worker.py     Kokoro-TTS subprocess (kokoro venv, binary protocol)
   doctor.py            diagnostic script
   assets/              WAV chimes: wakeup / tosleep / notify / confused
   models/              ML model files (not committed — place locally)

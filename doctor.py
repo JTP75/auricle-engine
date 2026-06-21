@@ -45,10 +45,8 @@ from consts import (
     ENV_AUDIO_OUTPUT,
     ENV_ENGINE_HOST,
     ENV_ENGINE_PORT,
-    ENV_F5_PYTHON,
     ENV_F5_REF_TXT,
     ENV_F5_REF_WAV,
-    ENV_KOKORO_PYTHON,
     ENV_MIC_DEVICE,
     ENV_OWW_EMBEDDING_MODEL_PATH,
     ENV_OWW_MELSPEC_MODEL_PATH,
@@ -59,7 +57,6 @@ from consts import (
     ENV_STT_BACKEND,
     ENV_TTS_BACKEND,
     ENV_VOSK_MODEL_PATH,
-    ENV_WHISPER_PYTHON,
     FFMPEG_BIN,
     SAMPLE_RATE,
 )
@@ -260,6 +257,8 @@ def _check_python_deps(issues: list[str], stt_backend: str, tts_backend: str,
     else:
         _info("vosk: skipped (whisper backend)")
 
+    # whisper, f5-tts, and kokoro deps are checked in their dedicated sections below
+
     if audio_in == "sounddevice" or audio_out == "sounddevice":
         try:
             __import__("sounddevice")
@@ -336,115 +335,52 @@ def _check_files(issues: list[str], stt_backend: str) -> None:
             _fail(f"Asset: {asset.name}", f"not found: {asset}", issues)
 
 
-# ── section F: whisper shim ────────────────────────────────────────────────────
+# ── section F: whisper dependencies ───────────────────────────────────────────
 
-def _check_whisper_shim(issues: list[str]) -> None:
-    _sec("Whisper Shim")
+def _check_whisper_deps(issues: list[str]) -> None:
+    _sec("Whisper STT Dependencies")
 
-    python_path = os.getenv(ENV_WHISPER_PYTHON, "").strip()
-    if not python_path:
-        _fail("AURICLE_WHISPER_PYTHON", "not set", issues)
-        return
-
-    p = Path(python_path)
-    if not p.exists():
-        _fail("Whisper Python binary", f"not found: {p}", issues)
-        return
-    if not os.access(p, os.X_OK):
-        _fail("Whisper Python binary", f"not executable: {p}", issues)
-        return
-    _ok("Whisper Python binary", f"({p})")
-
-    for pkg in ("torch", "transformers", "webrtcvad"):
+    for pkg, pip_hint in [
+        ("torch",        "torch"),
+        ("transformers", "transformers accelerate"),
+        ("webrtcvad",    "webrtcvad-wheels"),
+    ]:
         try:
-            result = subprocess.run(
-                [python_path, "-c", f"import {pkg}"],
-                capture_output=True,
-                timeout=20,
-            )
-            if result.returncode == 0:
-                _ok(f"Whisper venv: {pkg}")
-            else:
-                stderr = result.stderr.decode("utf-8", errors="replace").strip()
-                _fail(f"Whisper venv: {pkg}", stderr or "import failed", issues)
-        except subprocess.TimeoutExpired:
-            _fail(f"Whisper venv: {pkg}", "import check timed out (>20s)", issues)
-        except Exception as e:
-            _fail(f"Whisper venv: {pkg}", str(e), issues)
+            __import__(pkg)
+            _ok(pkg)
+        except ImportError:
+            _fail(pkg, f"pip install {pip_hint}", issues)
 
     try:
-        probe = subprocess.Popen(
-            [python_path, "-c", "import sys; sys.stdout.write('ok\\n'); sys.stdout.flush()"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
-        )
-        out, _ = probe.communicate(timeout=5)
-        if out.strip() == b"ok":
-            _ok("Whisper subprocess pipe probe")
-        else:
-            _fail("Whisper subprocess pipe probe", f"unexpected output: {out!r}", issues)
-    except subprocess.TimeoutExpired:
-        _fail("Whisper subprocess pipe probe", "timed out", issues)
-    except Exception as e:
-        _fail("Whisper subprocess pipe probe", str(e), issues)
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        _info(f"torch device: {device}")
+    except Exception:
+        pass
 
 
-# ── section G: F5-TTS shim ────────────────────────────────────────────────────
+# ── section G: F5-TTS dependencies ────────────────────────────────────────────
 
-def _check_f5_shim(issues: list[str]) -> None:
-    _sec("F5-TTS Shim")
+def _check_f5_deps(issues: list[str]) -> None:
+    _sec("F5-TTS Dependencies")
 
-    python_path = os.getenv(ENV_F5_PYTHON, "").strip()
-    if not python_path:
-        _fail("AURICLE_F5_PYTHON", "not set", issues)
-        return
-
-    p = Path(python_path)
-    if not p.exists():
-        _fail("F5 Python binary", f"not found: {p}", issues)
-        return
-    if not os.access(p, os.X_OK):
-        _fail("F5 Python binary", f"not executable: {p}", issues)
-        return
-    _ok("F5 Python binary", f"({p})")
-
-    for pkg in ("f5_tts", "numpy", "torch"):
+    for pkg, pip_hint in [
+        ("f5_tts",    "f5-tts"),
+        ("torch",     "torch"),
+        ("torchaudio","torchaudio"),
+    ]:
         try:
-            result = subprocess.run(
-                [python_path, "-c", f"import {pkg}"],
-                capture_output=True,
-                timeout=30,
-            )
-            if result.returncode == 0:
-                _ok(f"F5 venv: {pkg}")
-            else:
-                stderr = result.stderr.decode("utf-8", errors="replace").strip()
-                _fail(f"F5 venv: {pkg}", stderr or "import failed", issues)
-        except subprocess.TimeoutExpired:
-            _fail(f"F5 venv: {pkg}", "import check timed out (>30s)", issues)
-        except Exception as e:
-            _fail(f"F5 venv: {pkg}", str(e), issues)
+            __import__(pkg)
+            _ok(pkg)
+        except ImportError:
+            _fail(pkg, f"pip install {pip_hint}", issues)
 
     try:
-        probe = subprocess.Popen(
-            [python_path, "-c",
-             "import sys; sys.stdout.buffer.write(b'ok\\n'); sys.stdout.buffer.flush()"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
-        )
-        out, _ = probe.communicate(timeout=5)
-        if out.strip() == b"ok":
-            _ok("F5 subprocess pipe probe")
-        else:
-            _fail("F5 subprocess pipe probe", f"unexpected output: {out!r}", issues)
-    except subprocess.TimeoutExpired:
-        _fail("F5 subprocess pipe probe", "timed out", issues)
-    except Exception as e:
-        _fail("F5 subprocess pipe probe", str(e), issues)
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        _info(f"torch device: {device}")
+    except Exception:
+        pass
 
     ref_wav = os.path.expanduser(os.getenv(ENV_F5_REF_WAV, "").strip())
     ref_txt = os.path.expanduser(os.getenv(ENV_F5_REF_TXT, "").strip())
@@ -462,66 +398,26 @@ def _check_f5_shim(issues: list[str]) -> None:
         _info("F5 ref: not configured — will use bundled voice")
 
 
-# ── section H: Kokoro-TTS shim ────────────────────────────────────────────────
+# ── section H: Kokoro-TTS dependencies ────────────────────────────────────────
 
-def _check_kokoro_shim(issues: list[str]) -> None:
-    _sec("Kokoro-TTS Shim")
+def _check_kokoro_deps(issues: list[str]) -> None:
+    _sec("Kokoro-TTS Dependencies")
 
-    python_path = os.getenv(ENV_KOKORO_PYTHON, "").strip()
-    if not python_path:
-        _fail("AURICLE_KOKORO_PYTHON", "not set", issues)
-        return
-
-    p = Path(python_path)
-    if not p.exists():
-        _fail("Kokoro Python binary", f"not found: {p}", issues)
-        return
-    if not os.access(p, os.X_OK):
-        _fail("Kokoro Python binary", f"not executable: {p}", issues)
-        return
-    _ok("Kokoro Python binary", f"({p})")
-
-    for pkg in ("kokoro", "numpy"):
+    for pkg, pip_hint in [
+        ("kokoro",    "kokoro"),
+        ("soundfile", "soundfile"),
+    ]:
         try:
-            result = subprocess.run(
-                [python_path, "-c", f"import {pkg}"],
-                capture_output=True,
-                timeout=30,
-            )
-            if result.returncode == 0:
-                _ok(f"Kokoro venv: {pkg}")
-            else:
-                stderr = result.stderr.decode("utf-8", errors="replace").strip()
-                _fail(f"Kokoro venv: {pkg}", stderr or "import failed", issues)
-        except subprocess.TimeoutExpired:
-            _fail(f"Kokoro venv: {pkg}", "import check timed out (>30s)", issues)
-        except Exception as e:
-            _fail(f"Kokoro venv: {pkg}", str(e), issues)
+            __import__(pkg)
+            _ok(pkg)
+        except ImportError:
+            _fail(pkg, f"pip install {pip_hint}", issues)
 
     if shutil.which("espeak-ng"):
         _ok("espeak-ng (phonemizer backend)")
     else:
         _fail("espeak-ng",
               "not found on PATH — install with: apt-get install espeak-ng", issues)
-
-    try:
-        probe = subprocess.Popen(
-            [python_path, "-c",
-             "import sys; sys.stdout.buffer.write(b'ok\\n'); sys.stdout.buffer.flush()"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
-        )
-        out, _ = probe.communicate(timeout=5)
-        if out.strip() == b"ok":
-            _ok("Kokoro subprocess pipe probe")
-        else:
-            _fail("Kokoro subprocess pipe probe", f"unexpected output: {out!r}", issues)
-    except subprocess.TimeoutExpired:
-        _fail("Kokoro subprocess pipe probe", "timed out", issues)
-    except Exception as e:
-        _fail("Kokoro subprocess pipe probe", str(e), issues)
 
 
 # ── section I: audio devices ──────────────────────────────────────────────────
@@ -666,13 +562,13 @@ def run_doctor() -> int:
     _check_files(issues, stt_backend)
 
     if stt_backend == "whisper":
-        _check_whisper_shim(issues)
+        _check_whisper_deps(issues)
 
     if tts_backend == "f5-tts":
-        _check_f5_shim(issues)
+        _check_f5_deps(issues)
 
     if tts_backend == "kokoro-tts":
-        _check_kokoro_shim(issues)
+        _check_kokoro_deps(issues)
 
     _check_audio_devices(issues, audio_in, audio_out, mic_device, spk_device, binaries_ok)
 
