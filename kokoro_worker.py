@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Kokoro-TTS worker — runs in ~/kokoro-venv (Python 3.10, kokoro 0.9.x).
-Spawned by KokoroTTSProvider.load() in the hermes-auricle plugin. Do not run directly.
+Spawned by KokoroTTSProvider.load() in auricle-engine. Do not run directly.
 
 Protocol:
   Handshake (stdout, line):  READY\\n            → model loaded

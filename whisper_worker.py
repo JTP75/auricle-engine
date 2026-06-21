@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Whisper STT worker — runs in a Python 3.10 venv with torch/transformers/webrtcvad.
-Spawned by WhisperSTTProvider.load() in the hermes-auricle plugin. Do not run directly.
+Spawned by WhisperSTTProvider.load() in auricle-engine. Do not run directly.
 
 Protocol (stdin binary, stdout line-based UTF-8):
   IN  0x01 + AUDIO_CHUNK_BYTES bytes  → feed one OWW-cadence chunk

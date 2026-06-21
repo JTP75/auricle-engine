@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 F5-TTS worker — runs in ~/f5-venv (Python 3.10, f5_tts, torch+CUDA).
-Spawned by F5TTSProvider.load() in the hermes-auricle plugin. Do not run directly.
+Spawned by F5TTSProvider.load() in auricle-engine. Do not run directly.
 
 Protocol:
   Handshake (stdout, line):  READY\\n            → model loaded, ref resolved
