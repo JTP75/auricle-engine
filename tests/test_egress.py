@@ -243,7 +243,18 @@ def test_abort_drains_queue():
 def test_tts_active_flag_set_during_playback():
     # AudioBuffer.tts_active must be True while audio is playing so the
     # ingress thread gates STT. If it's never set, speaker echo feeds STT.
+    #
+    # The worker sets tts_active=True AFTER play_bytes() returns the handle
+    # and BEFORE awaiting handle.wait(). So we capture it inside wait().
     active_during = []
+
+    class _TrackingHandle(_MockHandle):
+        def __init__(self, buf):
+            super().__init__()
+            self._buf = buf
+
+        async def wait(self):
+            active_during.append(self._buf.tts_active)
 
     class _TrackingOutput(_MockOutput):
         def __init__(self, buf):
@@ -251,10 +262,8 @@ def test_tts_active_flag_set_during_playback():
             self._buf = buf
 
         async def play_bytes(self, audio_bytes):
-            active_during.append(self._buf.tts_active)
-            handle = _MockHandle()
             self.played.append(audio_bytes)
-            return handle
+            return _TrackingHandle(self._buf)
 
     async def impl():
         tts = _MockTTS()
