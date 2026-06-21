@@ -66,6 +66,7 @@ ENV_AUDIO_OUTPUT             = "AURICLE_AUDIO_OUTPUT"
 ENV_SD_INPUT_DEVICE          = "AURICLE_SD_INPUT_DEVICE"
 ENV_SD_OUTPUT_DEVICE         = "AURICLE_SD_OUTPUT_DEVICE"
 ENV_ENGINE_PORT              = "AURICLE_ENGINE_PORT"
+ENV_ENGINE_HOST              = "AURICLE_ENGINE_HOST"
 
 # ── Auto-sleep ─────────────────────────────────────────────────────────────
 ENV_SLEEP_TIMEOUT          = "AURICLE_SLEEP_TIMEOUT"
@@ -98,7 +99,7 @@ DEFAULT_SLEEP_WAKE_SENSITIVITY   = 3.0     # × sleep_baseline → wake threshol
 DEFAULT_SLEEP_FLUX_THRESHOLD     = 0.02    # normalized flux EMA "quiet" cutoff
 
 # ── WebSocket server ────────────────────────────────────────────────────────
-ENGINE_HOST = "localhost"
+ENGINE_HOST = "localhost"  # set AURICLE_ENGINE_HOST=0.0.0.0 for remote clients
 ENGINE_PORT = 57310
 
 # ── F5 TTS ─────────────────────────────────────────────────────────────────

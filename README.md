@@ -150,6 +150,7 @@ All settings are read from environment variables. There is no config file — se
 | `AURICLE_SLEEP_WAKE_SENSITIVITY` | `3.0` | Flux multiplier above baseline to wake; lower = more sensitive |
 | `AURICLE_SLEEP_FLUX_THRESHOLD` | `0.02` | Normalized flux EMA cutoff for "quiet" classification |
 | `AURICLE_ENGINE_PORT` | `57310` | WebSocket server port |
+| `AURICLE_ENGINE_HOST` | `localhost` | WebSocket server bind address. Set to `0.0.0.0` to accept connections from remote clients (e.g. connector on a different machine over Tailscale). |
 
 ---
 

@@ -13,6 +13,7 @@ from consts import (
     ASSET_NOTIFY,
     ENGINE_HOST,
     ENGINE_PORT,
+    ENV_ENGINE_HOST,
     ENV_ENGINE_PORT,
     PROACTIVE_PRE_SPEECH_PAUSE,
     TTS_CLEARED,
@@ -165,7 +166,7 @@ class AuricleServer:
 
     async def serve(self) -> None:
         """Start the WebSocket server. Blocks until cancelled."""
-        host = ENGINE_HOST
+        host = os.getenv(ENV_ENGINE_HOST, ENGINE_HOST)
         port = int(os.getenv(ENV_ENGINE_PORT, str(ENGINE_PORT)))
         logger.info("[auricle-engine] listening on ws://%s:%d", host, port)
         async with websockets.serve(self._handle_connection, host, port):
