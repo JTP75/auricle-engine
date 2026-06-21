@@ -152,7 +152,7 @@ def _check_env() -> None:
         return
 
     try:
-        load_dotenv(dotenv_path=env_path, override=True, encoding="utf-8")
+        load_dotenv(dotenv_path=env_path, override=True, encoding="utf-8-sig")
     except UnicodeDecodeError:
         try:
             load_dotenv(dotenv_path=env_path, override=True, encoding="latin-1")

@@ -10,6 +10,21 @@ import asyncio
 import logging
 import os
 import threading
+from pathlib import Path
+
+# Load .env from the engine directory before reading any env vars.
+# Silent if python-dotenv is not installed or .env doesn't exist.
+def _load_dotenv() -> None:
+    env_path = Path(__file__).parent / ".env"
+    if not env_path.exists():
+        return
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(dotenv_path=env_path, override=True, encoding="utf-8-sig")
+    except ImportError:
+        pass
+
+_load_dotenv()
 
 from consts import (
     AUDIO_CHUNK_BYTES,
