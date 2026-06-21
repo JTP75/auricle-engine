@@ -216,3 +216,27 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ── Auricle Engine ────────────────────────────────────────────────────────────
+
+# ML model files (large binaries — place in models/ but don't commit)
+models/
+*.onnx
+*.bin
+*.pt
+*.pth
+*.safetensors
+
+# Local dev notes and scratch files
+.local/
+
+# Engine config / secrets (user-local, not committed)
+~/.auricle/
+
+# Audio temp files
+*.mp3
+# Note: assets/*.wav ARE tracked — no blanket *.wav rule here
+
+# Runtime state
+*.pid
+*.sock
