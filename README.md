@@ -5,7 +5,7 @@ A standalone, agent-agnostic voice engine. Owns wakeword detection, STT, TTS, au
 - **Wakeword**: [openWakeWord](https://github.com/dscripka/openWakeWord) (ONNX, custom model)
 - **STT**: [vosk](https://alphacephei.com/vosk/) (offline, CPU) or [distil-whisper](https://huggingface.co/distil-whisper/distil-large-v3) (GPU, subprocess)
 - **TTS**: [edge-tts](https://github.com/rany2/edge-tts) (cloud, default), [F5-TTS](https://github.com/SWivid/F5-TTS) (local GPU, voice cloning), or [Kokoro-82M](https://github.com/hexgrad/kokoro) (local, fast)
-- **Target hardware**: Raspberry Pi + Jabra Speak 510 USB
+- **Target hardware**: Raspberry Pi + Jabra Speak 510 USB, NVIDIA Jetson Orin Nana
 
 ---
 
