@@ -35,6 +35,8 @@ from consts import (
     DEFAULT_SD_INPUT_DEVICE,
     DEFAULT_SD_OUTPUT_DEVICE,
     DEFAULT_SPEAKER_DEVICE,
+    DEFAULT_STANDALONE_WS_HOST,
+    DEFAULT_STANDALONE_WS_PORT,
     DEFAULT_STT_BACKEND,
     DEFAULT_TTS_BACKEND,
     DEFAULT_VOSK_MODEL_PATH,
@@ -52,6 +54,8 @@ from consts import (
     ENV_SD_INPUT_DEVICE,
     ENV_SD_OUTPUT_DEVICE,
     ENV_SPEAKER_DEVICE,
+    ENV_STANDALONE_WS_HOST,
+    ENV_STANDALONE_WS_PORT,
     ENV_STT_BACKEND,
     ENV_TTS_BACKEND,
     ENV_VOSK_MODEL_PATH,
@@ -112,6 +116,16 @@ def _connector_reachable(url: str) -> bool:
 
 
 # ── sounddevice device resolution ─────────────────────────────────────────────
+
+def _port_bindable(host: str, port: int) -> bool:
+    """True if a fresh socket can bind (host, port) — i.e. it's free."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind((host, port))
+            return True
+        except OSError:
+            return False
+
 
 def _sd_device(env_var: str, default: str) -> int | str | None:
     val = os.getenv(env_var, default).strip()
@@ -218,6 +232,21 @@ def _check_config(issues: list[str]) -> tuple[str, str, str, str, str, str]:
         _ok("Connector reachable", f"({connector_url})")
     else:
         _info("Connector not yet reachable — start hermes gateway before testing audio")
+
+    st_host = os.getenv(ENV_STANDALONE_WS_HOST, DEFAULT_STANDALONE_WS_HOST)
+    st_port_raw = os.getenv(ENV_STANDALONE_WS_PORT, str(DEFAULT_STANDALONE_WS_PORT))
+    try:
+        st_port = int(st_port_raw)
+    except ValueError:
+        _fail("Standalone WS port", f"{st_port_raw!r} is not an integer", issues)
+    else:
+        _info(f"Standalone WS:   ws://{st_host}:{st_port}")
+        if _port_bindable(st_host, st_port):
+            _ok("Standalone port free")
+        else:
+            _fail("Standalone port in use",
+                  "another process holds this port — set AURICLE_STANDALONE_WS_PORT or stop it",
+                  issues)
 
     return stt_backend, tts_backend, audio_in, audio_out, mic_device, spk_device
 

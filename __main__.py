@@ -101,6 +101,7 @@ from providers import (
 )
 from client import AuricleClient
 from sleep import SleepDetector
+from standalone import serve_standalone
 
 logging.basicConfig(
     level=logging.INFO,
@@ -181,7 +182,7 @@ async def main() -> None:
     audio_buffer = AudioBuffer(AUDIO_RING_BUFFER_CHUNKS, tts_tail_seconds=TTS_ECHO_TAIL_SECONDS)
     egress       = EgressController(tts, barge_in, audio_buffer, audio_output)
     stop_event   = threading.Event()
-    client       = AuricleClient(fsm, egress, audio_output, stop_event)
+    client       = AuricleClient(fsm, egress, stop_event)
     client.set_loop(loop)
 
     # ── Load STT ───────────────────────────────────────────────────────────
@@ -251,11 +252,15 @@ async def main() -> None:
     ingress_thread.start()
     logger.info("[auricle-engine] ingress started — listening for wakeword")
 
-    # ── Connect to connector and run (blocks until cancelled) ──────────────
+    # ── Standalone listener + connector (run until cancelled) ───────────────
+    standalone_stop = asyncio.Event()
+    standalone_task = asyncio.create_task(serve_standalone(egress, standalone_stop))
     try:
         await client.run()
     finally:
         stop_event.set()
+        standalone_stop.set()
+        await asyncio.gather(standalone_task, return_exceptions=True)
         if isinstance(stt, WhisperSTTProvider):
             stt.terminate()
         if isinstance(tts, (F5TTSProvider, KokoroTTSProvider)):

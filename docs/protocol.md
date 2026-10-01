@@ -85,8 +85,8 @@ the ingress loop out of UTTERANCE and into barge-in detection mode.
 ```
 
 Requests that the engine play the notify chime followed by the given text as TTS,
-without going through the normal utterance/dispatch FSM flow. Used by the
-connector's standalone sender (cron/proactive notifications). The engine replies
+without going through the normal utterance/dispatch FSM flow. Used for
+proactive delivery (cron, out-of-band notifications). The engine replies
 with `notify_done` when playback completes.
 
 ### `cmd` — session command acknowledgement
@@ -174,6 +174,44 @@ sender waits for this before closing the connection.
 
 Sent before the engine closes the connection on a fatal error. The connector
 should surface this to the user / operator and attempt reconnection.
+
+---
+
+## Standalone listener (out-of-process delivery)
+
+In addition to acting as a client of the connector, the engine runs its own
+small WebSocket server so out-of-process senders (cron, `hermes send`) can
+reach the speaker directly when the hermes gateway is not running.
+
+```
+Default address:  ws://localhost:57311
+                  (AURICLE_STANDALONE_WS_HOST / AURICLE_STANDALONE_WS_PORT)
+```
+
+### Lifecycle
+
+```
+Standalone sender                  Engine standalone listener
+  |                               |
+  |-------- WebSocket connect --->|
+  |   {t:"notify", text:"..."} --->|   plays notify chime, then TTS
+  |<---- {t:"notify_done"} -------|   playback complete
+  |---- WebSocket close ---------->|
+```
+
+- **One client at a time.** A second concurrent connection is rejected
+  (close code 1008). Senders should connect, wait for `notify_done`, and
+  close.
+- **No `client_id`.** The standalone connection is separate from the
+  connector connection, so the `client_id` contract does not apply here.
+- **FSM-free.** Standalone notify does not touch FSM state and does not
+  generate utterance/barge_in events — it only plays the chime and the
+  spoken text.
+- **Concurrent sends overlap.** Two in-flight notifies play on the same
+  speaker simultaneously (aplay processes are independent). Senders should
+  wait for `notify_done` before sending the next notify, and should not fire
+  while a connector session is speaking if overlap is unacceptable.
+- **Text only.** No media or file delivery on this path.
 
 ---
 

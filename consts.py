@@ -63,6 +63,8 @@ ENV_AUDIO_OUTPUT             = "AURICLE_AUDIO_OUTPUT"
 ENV_SD_INPUT_DEVICE          = "AURICLE_SD_INPUT_DEVICE"
 ENV_SD_OUTPUT_DEVICE         = "AURICLE_SD_OUTPUT_DEVICE"
 ENV_CONNECTOR_URL            = "AURICLE_CONNECTOR_URL"
+ENV_STANDALONE_WS_HOST       = "AURICLE_STANDALONE_WS_HOST"
+ENV_STANDALONE_WS_PORT       = "AURICLE_STANDALONE_WS_PORT"
 
 # ── Auto-sleep ─────────────────────────────────────────────────────────────
 ENV_SLEEP_TIMEOUT          = "AURICLE_SLEEP_TIMEOUT"
@@ -96,6 +98,10 @@ DEFAULT_SLEEP_FLUX_THRESHOLD     = 0.02    # normalized flux EMA "quiet" cutoff
 
 # ── WebSocket client ────────────────────────────────────────────────────────
 DEFAULT_CONNECTOR_URL = "ws://localhost:57310"
+
+# ── Standalone WS server (out-of-process delivery) ─────────────────────────
+DEFAULT_STANDALONE_WS_HOST = "localhost"
+DEFAULT_STANDALONE_WS_PORT = 57311
 
 # ── F5 TTS ─────────────────────────────────────────────────────────────────
 F5_SAMPLE_RATE         = 24000

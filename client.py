@@ -8,10 +8,8 @@ import websockets
 import websockets.exceptions
 
 from consts import (
-    ASSET_NOTIFY,
     DEFAULT_CONNECTOR_URL,
     ENV_CONNECTOR_URL,
-    PROACTIVE_PRE_SPEECH_PAUSE,
     RETRY_DELAY_SECONDS,
     TTS_CLEARED,
     TTS_STOPPED,
@@ -32,10 +30,9 @@ class AuricleClient:
     Reconnects automatically on disconnect.
     """
 
-    def __init__(self, fsm: FSM, egress, audio_output, stop_event) -> None:
+    def __init__(self, fsm: FSM, egress, stop_event) -> None:
         self._fsm          = fsm
         self._egress       = egress
-        self._audio_output = audio_output
         self._stop_event   = stop_event
 
         self._ws:        Optional[object] = None
@@ -115,11 +112,7 @@ class AuricleClient:
             self._fsm.transition(State.DISPATCHED)
 
         elif t == "notify":
-            text = msg.get("text", "")
-            logger.info("[auricle-engine] notify: %r", text[:60])
-            await self._audio_output.play_file(ASSET_NOTIFY)
-            await asyncio.sleep(PROACTIVE_PRE_SPEECH_PAUSE)
-            await self._egress.speak(text)
+            await self._egress.play_notify(msg.get("text", ""))
             await self.send_event({"t": "notify_done", "client_id": self._client_id})
 
         elif t == "cmd":

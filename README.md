@@ -88,7 +88,7 @@ source .venv/bin/activate
 python __main__.py
 ```
 
-Connects to the connector at `ws://localhost:57310` by default. Set `AURICLE_CONNECTOR_URL` to point at a remote connector.
+Connects to the connector at `ws://localhost:57310` by default. Set `AURICLE_CONNECTOR_URL` to point at a remote connector. It also runs a standalone listener on `ws://localhost:57311` for out-of-process delivery (cron, `hermes send`) — see [Standalone listener](docs/protocol.md#standalone-listener-out-of-process-delivery).
 
 ---
 
@@ -146,6 +146,8 @@ All settings are read from environment variables. There is no config file — se
 | `AURICLE_SLEEP_WAKE_SENSITIVITY` | `3.0` | Flux multiplier above baseline to wake; lower = more sensitive |
 | `AURICLE_SLEEP_FLUX_THRESHOLD` | `0.02` | Normalized flux EMA cutoff for "quiet" classification |
 | `AURICLE_CONNECTOR_URL` | `ws://localhost:57310` | WebSocket URL of the hermes-auricle connector server. Change to the connector's Tailscale address when running on separate machines. |
+| `AURICLE_STANDALONE_WS_HOST` | `localhost` | Bind host for the standalone delivery listener. |
+| `AURICLE_STANDALONE_WS_PORT` | `57311` | Port for the standalone delivery listener (cron / out-of-process sends). |
 
 ---
 

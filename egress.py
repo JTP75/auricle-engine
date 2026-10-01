@@ -6,7 +6,7 @@ from typing import Optional
 
 from audio_buffer import AudioBuffer
 from audio_io import AudioOutput, PlaybackHandle
-from consts import TTS_MAX_CHARS
+from consts import ASSET_NOTIFY, PROACTIVE_PRE_SPEECH_PAUSE, TTS_MAX_CHARS
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +126,13 @@ class EgressController:
     async def play_file(self, path: Path) -> None:
         """Play a WAV asset file directly (for notify/wakeup/tosleep/etc.)."""
         await self._audio_output.play_file(path)
+
+    async def play_notify(self, text: str) -> None:
+        """Play the notify chime, pause, then speak ``text`` — out-of-band delivery."""
+        logger.info("[auricle-engine] notify: %r", text[:60])
+        await self.play_file(ASSET_NOTIFY)
+        await asyncio.sleep(PROACTIVE_PRE_SPEECH_PAUSE)
+        await self.speak(text)
 
     async def speak(self, text: str, *, priority: bool = False) -> None:
         """Synthesize and play a short phrase immediately, outside the worker queue.
